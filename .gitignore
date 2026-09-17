@@ -1,0 +1,31 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# --- Env / secrets ---
+# .env is local-only (copy from .env.example); never commit real env files
+.env
+.env.local
+.env.prod
+.env.*.local
+
+# --- IDE ---
+.idea/
+.vscode/
+.DS_Store
+
+# --- Runtime data ---
+data/
+*.log
+*.sqlite

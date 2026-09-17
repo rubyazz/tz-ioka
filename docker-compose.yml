@@ -1,0 +1,102 @@
+name: ioka-travel
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ioka
+      POSTGRES_PASSWORD: ioka
+      POSTGRES_DB: ioka_travel
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ioka -d ioka_travel"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: ioka
+      RABBITMQ_DEFAULT_PASS: ioka
+    ports:
+      - "5672:5672"
+      - "15672:15672"  # management UI: http://localhost:15672 (ioka/ioka)
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  # One-shot migration runner; api/worker wait for its success.
+  migrate:
+    build: .
+    command: ["alembic", "upgrade", "head"]
+    env_file:
+      - path: .env.local
+        required: false
+      - path: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build: .
+    env_file:
+      - path: .env.local
+        required: false
+      - path: .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - tickets:/data/tickets
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    build: .
+    command: ["python", "-m", "app.workers.pdf_worker"]
+    # The image-level HEALTHCHECK probes HTTP :8000 (api only); the worker
+    # runs a queue consumer, so it would always look "unhealthy".
+    healthcheck:
+      disable: true
+    env_file:
+      - path: .env.local
+        required: false
+      - path: .env
+    volumes:
+      - tickets:/data/tickets
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  tickets:
