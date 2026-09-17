@@ -95,7 +95,6 @@ async def test_login_wrong_password(client: AsyncClient, agent: Agent) -> None:
 
 
 async def test_endpoints_require_token() -> None:
-
     from httpx import ASGITransport
     from httpx import AsyncClient as AC
 
