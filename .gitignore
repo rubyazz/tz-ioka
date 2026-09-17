@@ -29,3 +29,6 @@ htmlcov/
 data/
 *.log
 *.sqlite
+
+# Local-only notes
+docs/MANUAL-TESTING.md
