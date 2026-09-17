@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     ticket_storage_dir: str = "/data/tickets"
 
     # --- Security / JWT ---
-    jwt_secret: str = "dev-only-secret-change-me"
+    jwt_secret: str = "dev-only-secret-change-me-0123456789abcdef0123456789"
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60
 

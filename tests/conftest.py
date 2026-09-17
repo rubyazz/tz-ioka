@@ -10,6 +10,8 @@ back to synchronous PDF generation — ticket endpoints become deterministic.
 """
 
 import os
+import shutil
+import tempfile
 
 # Test environment must be pinned BEFORE any app import.
 # DATABASE_URL / REDIS_URL honor externally provided test values (CI runs
@@ -26,6 +28,10 @@ os.environ["SEED_DEMO_DATA"] = "false"
 # Unreachable broker on purpose: publish_ticket_generation returns False and
 # issuing falls back to synchronous PDF generation (deterministic tickets).
 os.environ["RABBITMQ_URL"] = "amqp://unreachable.invalid:5672/%2F"
+# Ticket PDFs land in a temp dir: the default /data/tickets exists only in
+# the Docker image (CI runners refuse to create /data).
+_ticket_dir = tempfile.mkdtemp(prefix="tz-ioka-tickets-")
+os.environ["TICKET_STORAGE_DIR"] = _ticket_dir
 
 import uuid
 from collections.abc import AsyncIterator
@@ -49,6 +55,10 @@ from app.main import create_app
 from app.models import Agent
 
 _engine: AsyncEngine | None = None
+
+
+def pytest_sessionfinish() -> None:
+    shutil.rmtree(_ticket_dir, ignore_errors=True)
 
 
 async def get_test_engine() -> AsyncEngine:

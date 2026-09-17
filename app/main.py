@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 import redis.asyncio as aioredis
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import ORJSONResponse
+from fastapi.responses import JSONResponse
 from sqlalchemy import select, text
 
 from app.api.v1 import api_router
@@ -74,7 +74,6 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title=settings.app_name,
         version=settings.app_version,
-        default_response_class=ORJSONResponse,
         lifespan=lifespan,
         docs_url=f"{settings.api_prefix}/docs",
         openapi_url=f"{settings.api_prefix}/openapi.json",
@@ -102,7 +101,7 @@ def create_app() -> FastAPI:
     @app.exception_handler(AppError)
     async def app_error_handler(request: Request, exc: AppError):
         log.warning("app_error", code=exc.code, status=exc.status_code, detail=exc.message)
-        return ORJSONResponse(
+        return JSONResponse(
             status_code=exc.status_code,
             content={"error": exc.to_payload()},
         )
@@ -110,7 +109,7 @@ def create_app() -> FastAPI:
     @app.exception_handler(Exception)
     async def unhandled_error_handler(request: Request, exc: Exception):
         log.exception("unhandled_error")
-        return ORJSONResponse(
+        return JSONResponse(
             status_code=500,
             content={"error": {"code": "INTERNAL_ERROR", "message": "Internal server error"}},
         )
@@ -122,7 +121,7 @@ def create_app() -> FastAPI:
         return {"status": "alive"}
 
     @app.get("/health/ready", tags=["health"])
-    async def ready(request: Request) -> ORJSONResponse:
+    async def ready(request: Request) -> JSONResponse:
         checks: dict[str, bool] = {}
         try:
             async with get_session_factory()() as session:
@@ -136,7 +135,7 @@ def create_app() -> FastAPI:
         except Exception:
             checks["redis"] = False
         ok = all(checks.values())
-        return ORJSONResponse(
+        return JSONResponse(
             status_code=200 if ok else 503,
             content={"status": "ready" if ok else "degraded", "checks": checks},
         )

@@ -4,7 +4,7 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Header, status
-from fastapi.responses import FileResponse, ORJSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import Field
 
 from app.api.deps import CurrentAgent, SessionDep, SettingsDep
@@ -44,7 +44,7 @@ async def create_order(
     session: SessionDep,
     settings: SettingsDep,
     idempotency_key: IdempotencyKeyHeader = None,
-) -> OrderOut | ORJSONResponse:
+) -> OrderOut | JSONResponse:
     """Book the given offer: price it per passenger and persist as BOOKED.
 
     With an ``Idempotency-Key`` header, retries replay the original 201 body
@@ -54,7 +54,7 @@ async def create_order(
         agent, body, idempotency_key
     )
     if replay is not None:
-        return ORJSONResponse(
+        return JSONResponse(
             status_code=status.HTTP_201_CREATED,
             content=replay,
             headers={"Idempotency-Replayed": "true"},
@@ -71,13 +71,13 @@ async def issue_order(
     session: SessionDep,
     settings: SettingsDep,
     idempotency_key: IdempotencyKeyHeader = None,
-) -> IssueOut | ORJSONResponse:
+) -> IssueOut | JSONResponse:
     """Issue the order: atomic balance debit, ticket number, PDF hand-off."""
     issue_out, replay = await IssuingService(session, settings).issue(
         agent, order_id, idempotency_key
     )
     if replay is not None:
-        return ORJSONResponse(
+        return JSONResponse(
             status_code=status.HTTP_200_OK,
             content=replay,
             headers={"Idempotency-Replayed": "true"},
@@ -103,7 +103,7 @@ async def get_ticket(
     order_id: uuid.UUID,
     agent: CurrentAgent,
     session: SessionDep,
-) -> FileResponse | ORJSONResponse:
+) -> FileResponse | JSONResponse:
     """Download the generated PDF ticket, or trigger generation (202) if absent."""
     order = _owned_order(await OrderRepository(session).get_by_id(order_id), agent.id)
     if order.status != OrderStatus.ISSUED:
@@ -120,7 +120,7 @@ async def get_ticket(
             filename=f"ticket_{order.ticket_number or order.id}.pdf",
         )
     await tickets.request_generation(order)
-    return ORJSONResponse(
+    return JSONResponse(
         status_code=status.HTTP_202_ACCEPTED,
         content={"status": "generating", "detail": "PDF is being generated, retry shortly"},
         headers={"Retry-After": "2"},
